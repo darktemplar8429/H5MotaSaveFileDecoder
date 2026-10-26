@@ -1,0 +1,23 @@
+# Visual Studio and build outputs
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+程序/
+publish/
+artifacts/
+
+# Local backups, saves and conversion results
+修改备份/
+**/test-output/
+**/H5MTSD_decode_json/
+**/H5MTSD_encode/
+**/decode_json/
+**/encode/
+*.h5save
+*.tmp
+*.bak
+Verification/fixtures.private*.json
