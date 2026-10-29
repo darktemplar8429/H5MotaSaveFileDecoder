@@ -8,6 +8,12 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../H5MotaSaveDecoder/H5MotaSaveDecoder.csproj" />
+    <!-- Raw assembly references need an entry in this executable's dependency manifest too. -->
+    <Reference Include="Jint">
+      <HintPath>../H5MotaSaveDecoder/Libraries/Jint.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <None Include="fixtures.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="over-limit.lz.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

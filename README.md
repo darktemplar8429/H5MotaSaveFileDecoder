@@ -2,6 +2,19 @@
 
 一个使用 C# / Windows Forms 编写的 H5 魔塔存档转换工具，支持将 LZString Base64 存档解码为 JSON，以及将编辑后的 JSON 重新打包为存档。
 
+## Jint 分支
+
+本分支使用 Jint.dll 在 .NET 进程内执行 LZString 1.5.0 JavaScript 库，不再由 C# 实现压缩算法。
+界面、存档格式、输出目录和命名规则与 main 分支一致。
+JSON 解析、格式化和 Unicode 转义仍由 C# 处理，保留原有大整数精度。
+
+- Jint.dll：使用本机已有的 2.11.58 版本，随源码保存在 H5MotaSaveDecoder/Libraries，构建时自动复制。
+- LZString：源码位于 H5MotaSaveDecoder/JavaScript/lz-string.js，并嵌入程序，不需要单独复制 JS 文件。
+- 只执行内置 JavaScript，存档作为字符串参数传入；每次调用使用独立引擎。
+- 保留损坏数据检查和 64 MiB UTF-16 字符数上限；单次 JavaScript 调用最多运行 2 分钟。
+- 构建不需要从 NuGet 下载 Jint；运行不需要 Node.js、浏览器或游戏安装目录。
+- 分发时请复制整个发布目录，包括 Jint.dll、运行配置和许可说明。
+
 ## 功能
 
 - **解码存档**：选择无扩展名存档或使用相同格式的 `.h5save` 文件。
@@ -47,7 +60,7 @@ dotnet publish H5MotaSaveDecoder/H5MotaSaveDecoder.csproj -c Release -o 程序
 dotnet run --project Verification/Verification.csproj -c Release
 ```
 
-包含 61 项检查，覆盖 LZString 与 JavaScript 参考实现的兼容性、JSON 往返、文件命名、输出目录、覆盖保护、中文、UTF-8 BOM、大整数和窗体构造。
+包含 96 项检查，覆盖 LZString 与 JavaScript 参考实现的兼容性、JSON 往返、文件命名、输出目录、覆盖保护、中文、UTF-8 BOM、大整数和窗体构造。
 仓库内测试数据均为合成样本，不包含真实游戏存档。
 
 ## 兼容范围

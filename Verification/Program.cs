@@ -28,6 +28,8 @@ internal static class Program
             string compressed = item.GetProperty("compressed").GetString()!;
             Check(LzString.CompressToBase64(plain) == compressed, "Compression differs from JS oracle");
             Check(LzString.DecompressFromBase64(compressed) == plain, "Decompression differs from JS oracle");
+            Check(LzString.DecompressFromBase64(compressed.TrimEnd('=')) == plain, "Unpadded save changed");
+            Check(LzString.DecompressFromBase64("\uFEFF" + compressed + "\r\n") == plain, "Save BOM/whitespace changed");
         }
         foreach (var item in fixtures.RootElement.GetProperty("saves").EnumerateArray())
         {
@@ -45,6 +47,33 @@ internal static class Program
                 Console.WriteLine($"Mismatch at {offset}: actual={a.Substring(offset, Math.Min(100, a.Length-offset))}; expected={b.Substring(offset, Math.Min(100, b.Length-offset))}");
             }
             Check(actualPacked == expectedPacked, "Packed save differs from game canonical encoding");
+        }
+        foreach (string invalid in new[] { "=", "Q====", "Q=Q", "!", "AA", "BYUwNmD" })
+            Reject(() => LzString.DecompressFromBase64(invalid), "Damaged LZString accepted: " + invalid);
+        string scriptLikeJson = JsonSerializer.Serialize(new
+        {
+            text = "'); throw new Error('must stay text'); //\n中文😀",
+            integer = 9007199254740993L
+        });
+        Check(JsonNode.DeepEquals(JsonNode.Parse(scriptLikeJson), JsonNode.Parse(SaveCodec.Decode(SaveCodec.Encode(scriptLikeJson)))),
+            "JavaScript-looking text must remain data");
+        var vectors = fixtures.RootElement.GetProperty("saves").EnumerateArray()
+            .Select(item => (Plain: item.GetProperty("plain").GetString()!, Packed: item.GetProperty("canonical").GetString()!)).ToArray();
+        var concurrent = Enumerable.Range(0, 12).Select(i => Task.Run(() =>
+        {
+            var vector = vectors[i % vectors.Length];
+            return SaveCodec.Encode(vector.Plain) == vector.Packed &&
+                JsonNode.DeepEquals(JsonNode.Parse(SaveCodec.Decode(vector.Packed)), JsonNode.Parse(vector.Plain));
+        })).ToArray();
+        Check(Task.WhenAll(concurrent).GetAwaiter().GetResult().All(ok => ok), "Concurrent conversions interfered");
+        try
+        {
+            _ = LzString.DecompressFromBase64(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "over-limit.lz.txt")));
+            throw new Exception("Oversized decoded content was accepted");
+        }
+        catch (InvalidDataException error)
+        {
+            Check(error.Message.Contains("64 MiB"), "Decoded length guard did not report the existing limit");
         }
         string scratch = Path.Combine(AppContext.BaseDirectory, "test-output");
         Directory.CreateDirectory(scratch);
@@ -66,6 +95,9 @@ internal static class Program
         File.WriteAllText(source, "{broken");
         Reject(() => SaveCodec.ConvertFile(source, output, false), "Malformed file");
         Check(File.ReadAllText(output) == good, "Invalid input overwrote output");
+        File.WriteAllText(source, "BYUwNmD");
+        Reject(() => SaveCodec.ConvertFile(source, output, true), "Damaged compressed file");
+        Check(File.ReadAllText(output) == good, "Damaged compressed input overwrote output");
         File.WriteAllText(source, "{\"hp\":123}");
         SaveCodec.ConvertFile(source, output, false);
         Check(SaveCodec.Decode(File.ReadAllText(output)).Contains("123"), "Overwrite output");
